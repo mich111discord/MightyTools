@@ -279,7 +279,7 @@
     <div class="hero-header">
       <div class="hero-title">
         <h1>VDownloader</h1>
-        <p style="color: var(--text-secondary);">Pobieraj materiały z YouTube, TikTok, Facebook i Instagram za darmo przez Cobalt API.</p>
+        <p style="color: var(--text-secondary);">Pobieraj materiały z YouTube, TikTok, Facebook i Instagram za darmo.</p>
       </div>
       <a href="../../" class="btn-home">
         <i class="fas fa-home"></i> Strona Główna
@@ -354,54 +354,70 @@
 
       statusBox.style.display = 'block';
       statusTitle.style.color = '#f0b90b';
-      statusTitle.innerHTML = `<span class="spinner"></span> Pobieranie strumienia przez Cobalt API...`;
+      statusTitle.innerHTML = `<span class="spinner"></span> Pobieranie strumienia przez API...`;
       statusDesc.innerHTML = 'Przetwarzanie zapytania... Za chwilę otrzymasz bezpośredni plik.';
 
-      try {
-        const payload = {
-          url: urlInput,
-          videoQuality: quality,
-          downloadMode: format === 'audio' ? 'audio' : 'auto',
-          audioFormat: 'mp3'
-        };
+      const payload = {
+        url: urlInput,
+        videoQuality: quality,
+        downloadMode: format === 'audio' ? 'audio' : 'auto',
+        audioFormat: 'mp3'
+      };
 
-        const response = await fetch('https://api.cobalt.tools/api/json', {
-          method: 'POST',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        });
+      // Lista instancji wraz z obsługą przelotu przez proxy CORS w razie potrzeby
+      const endpoints = [
+        'https://api.cobalt.tools/',
+        'https://corsproxy.io/?' + encodeURIComponent('https://api.cobalt.tools/')
+      ];
 
-        const data = await response.json();
+      let success = false;
 
-        if (data.status === 'stream' || data.status === 'redirect' || data.status === 'picker') {
-          const downloadUrl = data.url || (data.picker && data.picker[0] ? data.picker[0].url : null);
-          
-          if (!downloadUrl) throw new Error("Nie udało się wyciągnąć bezpośredniego adresu pliku.");
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          });
 
-          statusTitle.style.color = '#2ea44f';
-          statusTitle.innerHTML = `<i class="fas fa-check-circle"></i> Plik jest gotowy!`;
-          statusDesc.innerHTML = `
-            Przetwarzanie zakończone sukcesem.<br>
-            <a href="${downloadUrl}" target="_blank" class="btn-download-direct" download>
-              <i class="fas fa-file-download"></i> Pobierz plik teraz
-            </a>
-          `;
-        } else if (data.status === 'error') {
-          throw new Error(data.text || "Cobalt API zwróciło błąd podczas przetwarzania.");
-        } else {
-          throw new Error("Otrzymano nieznany status z API.");
+          if (!response.ok) continue;
+
+          const data = await response.json();
+
+          if (data.status === 'stream' || data.status === 'redirect' || data.status === 'picker' || data.url) {
+            const downloadUrl = data.url || (data.picker && data.picker[0] ? data.picker[0].url : null);
+
+            if (!downloadUrl) continue;
+
+            statusTitle.style.color = '#2ea44f';
+            statusTitle.innerHTML = `<i class="fas fa-check-circle"></i> Plik jest gotowy!`;
+            statusDesc.innerHTML = `
+              Przetwarzanie zakończone sukcesem.<br>
+              <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" class="btn-download-direct" download>
+                <i class="fas fa-file-download"></i> Pobierz plik teraz
+              </a>
+            `;
+            success = true;
+            break;
+          } else if (data.status === 'error') {
+            throw new Error(data.text || "Błąd podczas przetwarzania linku.");
+          }
+        } catch (err) {
+          console.warn('Nieudana próba z endpointem:', endpoint, err);
         }
-      } catch (err) {
+      }
+
+      if (!success) {
         statusTitle.style.color = '#da3633';
         statusTitle.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Wystąpił błąd`;
-        statusDesc.innerHTML = `Nie udało się pobrać multimediów.<br>Szczegóły: <code>${err.message}</code>`;
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = `<i class="fas fa-download"></i> Przetwarzaj i Pobierz`;
+        statusDesc.innerHTML = `Nie udało się pobrać multimediów z powodu blokady CORS lub ograniczeń API. Spróbuj innego linku.`;
       }
+
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fas fa-download"></i> Przetwarzaj i Pobierz`;
     }
   </script>
 </body>
