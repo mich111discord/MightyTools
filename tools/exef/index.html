@@ -3,13 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EXIF Metadata & GPS Remover</title>
+  <title>MightyTools - Strona Startowa</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   
-  <!-- Leaflet CSS (OpenStreetMap) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
   <style>
     :root {
       --primary: #36454F;
@@ -67,425 +64,169 @@
     .container {
       max-width: 1200px;
       margin: 0 auto;
-      padding: 3rem 2rem;
+      padding: 4rem 2rem;
       min-height: 100vh;
-    }
-
-    .hero-header {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 3rem;
-      gap: 1rem;
-      flex-wrap: wrap;
+      flex-direction: column;
+      justify-content: center;
     }
 
-    .hero-title h1 {
+    .hero {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+
+    .hero h1 {
       font-family: 'JetBrains Mono', monospace;
-      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-size: clamp(2.5rem, 6vw, 4rem);
       font-weight: 800;
-      margin-bottom: 0.5rem;
-      background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 70%);
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary-light) 70%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
-    .btn-home {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.6rem;
-      background: var(--bg-card);
-      color: var(--text-primary);
-      border: 1px solid var(--border-color);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.95rem;
-      font-weight: 600;
-      padding: 0.75rem 1.4rem;
-      border-radius: 12px;
-      cursor: pointer;
-      text-decoration: none;
-      box-shadow: var(--shadow);
-      transition: all 0.3s ease;
+    .hero p {
+      color: var(--text-secondary);
+      font-size: 1.1rem;
+      max-width: 600px;
+      margin: 0 auto;
     }
 
-    .btn-home:hover {
-      background: var(--primary);
-      border-color: var(--primary-light);
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-hover);
-    }
-
-    .upload-card {
-      background: var(--bg-card);
-      border: 2px dashed var(--border-color);
-      border-radius: 20px;
-      padding: 3rem 2rem;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      margin-bottom: 2rem;
-    }
-
-    .upload-card:hover {
-      border-color: var(--primary-light);
-      background: rgba(33, 38, 45, 0.7);
-    }
-
-    .upload-icon {
-      font-size: 3rem;
-      color: var(--accent-gold);
-      margin-bottom: 1rem;
-    }
-
-    #file-input {
-      display: none;
-    }
-
-    .main-grid {
+    .tools-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 2rem;
-      margin-bottom: 2rem;
     }
 
-    @media (max-width: 900px) {
-      .main-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .panel-card {
+    .tool-card {
       background: var(--bg-card);
       border: 1px solid var(--border-color);
       border-radius: 20px;
-      padding: 1.5rem;
+      padding: 2rem;
       box-shadow: var(--shadow);
+      text-decoration: none;
+      color: inherit;
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      justify-content: space-between;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
     }
 
-    .panel-title {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1.1rem;
-      font-weight: 600;
+    .tool-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: var(--gradient-primary);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .tool-card:hover {
+      transform: translateY(-8px);
+      box-shadow: var(--shadow-hover);
+      border-color: var(--primary-light);
+    }
+
+    .tool-card:hover::before {
+      opacity: 1;
+    }
+
+    .card-icon {
+      width: 54px;
+      height: 54px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
       color: var(--accent-gold);
+      margin-bottom: 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .tool-card:hover .card-icon {
+      background: var(--primary);
+      color: var(--text-primary);
+    }
+
+    .card-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.75rem;
+    }
+
+    .card-desc {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin-bottom: 1.5rem;
+    }
+
+    .card-action {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-    }
-
-    .image-preview-box {
-      width: 100%;
-      max-height: 350px;
-      border-radius: 12px;
-      overflow: hidden;
-      background: var(--bg-secondary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid var(--border-color);
-    }
-
-    .image-preview-box img {
-      max-width: 100%;
-      max-height: 350px;
-      object-fit: contain;
-    }
-
-    #map {
-      width: 100%;
-      height: 350px;
-      border-radius: 12px;
-      border: 1px solid var(--border-color);
-      background: var(--bg-secondary);
-    }
-
-    .metadata-table-container {
-      max-height: 350px;
-      overflow-y: auto;
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      background: var(--bg-secondary);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.85rem;
-    }
-
-    th, td {
-      padding: 0.75rem 1rem;
-      text-align: left;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    th {
-      background: var(--bg-card);
-      color: var(--accent-gold);
-      position: sticky;
-      top: 0;
-    }
-
-    td:first-child {
-      color: var(--text-secondary);
-      width: 40%;
-    }
-
-    .controls {
-      display: flex;
-      justify-content: center;
-      gap: 1.5rem;
-      margin-top: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.75rem;
-      background: var(--gradient-primary);
-      color: var(--text-primary);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1rem;
-      font-weight: 600;
-      padding: 0.85rem 2rem;
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
-      box-shadow: var(--shadow);
-      transition: all 0.3s ease;
-      text-decoration: none;
-    }
-
-    .btn:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--shadow-hover);
-    }
-
-    .btn-danger {
-      background: linear-gradient(135deg, #a83232 0%, #7a2525 100%);
-    }
-
-    .no-gps-notice {
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--text-secondary);
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.9rem;
-      text-align: center;
-      padding: 2rem;
+      font-weight: 600;
+      color: var(--accent-gold);
+      transition: gap 0.3s ease;
+    }
+
+    .tool-card:hover .card-action {
+      gap: 0.75rem;
     }
   </style>
 </head>
 
 <body>
   <main class="container">
-    <div class="hero-header">
-      <div class="hero-title">
-        <h1>EXIF Metadata & Map Viewer</h1>
-        <p style="color: var(--text-secondary);">Odczytuj metadane, lokalizuj miejsca na OpenStreetMap i usuwaj dane wrażliwe z plików zdjęć.</p>
-      </div>
-      <a href="" class="btn-home">
-        <i class="fas fa-home"></i> Strona Główna
+    <section class="hero">
+      <h1>MightyTools Hub</h1>
+      <p>Wybierz narzędzie z poniższej listy, aby przejść do właściwej aplikacji.</p>
+    </section>
+
+    <div class="tools-grid">
+      <!-- Kafel 1: PowerShell to BAT -->
+      <a href="ps2bat.html" class="tool-card">
+        <div>
+          <div class="card-icon">
+            <i class="fas fa-terminal"></i>
+          </div>
+          <h2 class="card-title">PowerShell to BAT</h2>
+          <p class="card-desc">Konwertuj skrypty PowerShell (.ps1) na wysoce kompatybilne pliki wsadowe Windows Batch (.bat) z zaawansowanymi opcjami uruchamiania.</p>
+        </div>
+        <div class="card-action">
+          <span>Uruchom narzędzie</span>
+          <i class="fas fa-arrow-right"></i>
+        </div>
+      </a>
+
+      <!-- Kafel 2: EXIF & Map Metadata Reader -->
+      <a href="exef.html" class="tool-card">
+        <div>
+          <div class="card-icon">
+            <i class="fas fa-map-marked-alt"></i>
+          </div>
+          <h2 class="card-title">EXIF & Map Viewer</h2>
+          <p class="card-desc">Odczytuj metadane ze zdjęć, wyciągaj pozycję GPS na mapie OpenStreetMap oraz bezśledzowo usuwaj tagi wrażliwe.</p>
+        </div>
+        <div class="card-action">
+          <span>Uruchom narzędzie</span>
+          <i class="fas fa-arrow-right"></i>
+        </div>
       </a>
     </div>
-
-    <!-- Upload Box -->
-    <div class="upload-card" onclick="document.getElementById('file-input').click()">
-      <div class="upload-icon">
-        <i class="fas fa-file-image"></i>
-      </div>
-      <h3 style="margin-bottom: 0.5rem;">Wybierz lub przeciągnij zdjęcie</h3>
-      <p style="color: var(--text-secondary); font-size: 0.9rem;">Obsługuje formaty JPG, JPEG, PNG, WEBP</p>
-      <input type="file" id="file-input" accept="image/*" onchange="handleFileSelect(event)">
-    </div>
-
-    <div class="main-grid">
-      <!-- Podgląd zdjęcia i Odczytane EXIF -->
-      <div class="panel-card">
-        <div class="panel-title">
-          <i class="fas fa-info-circle"></i> Metadane Pliku (EXIF)
-        </div>
-        
-        <div class="image-preview-box">
-          <img id="preview-img" src="" alt="Podgląd zdjęcia" style="display: none;" />
-          <span id="preview-placeholder" style="color: var(--text-secondary);">Brak wybranego pliku</span>
-        </div>
-
-        <div class="metadata-table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Tag</th>
-                <th>Wartość</th>
-              </tr>
-            </thead>
-            <tbody id="metadata-tbody">
-              <tr>
-                <td colspan="2" style="text-align: center; color: var(--text-secondary);">Załaduj zdjęcie, aby odczytać dane</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Mapa OpenStreetMap GPS -->
-      <div class="panel-card">
-        <div class="panel-title">
-          <i class="fas fa-map-marked-alt"></i> Lokalizacja GPS (OpenStreetMap)
-        </div>
-        <div id="map">
-          <div class="no-gps-notice" id="map-notice">
-            Brak danych GPS w pliku lub nie załadowano zdjęcia.
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="controls">
-      <button class="btn btn-danger" id="btn-strip" onclick="stripExifAndDownload()" disabled>
-        <i class="fas fa-user-shield"></i> Usuń metadane i Pobierz Czyste Zdjęcie
-      </button>
-    </div>
   </main>
-
-  <!-- External Libraries: EXIF.js & Leaflet JS -->
-  <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <script>
-    let currentFile = null;
-    let map = null;
-    let marker = null;
-
-    function initMap() {
-      map = L.map('map').setView([52.237049, 21.017532], 5); // Default: Polska
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(map);
-    }
-
-    window.onload = function() {
-      initMap();
-    };
-
-    function handleFileSelect(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      currentFile = file;
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const img = document.getElementById('preview-img');
-        img.src = e.target.result;
-        img.style.display = 'block';
-        document.getElementById('preview-placeholder').style.display = 'none';
-        document.getElementById('btn-strip').disabled = false;
-      };
-      reader.readAsDataURL(file);
-
-      // Odczytywanie EXIF
-      EXIF.getData(file, function() {
-        const allMetaData = EXIF.getAllTags(this);
-        const tbody = document.getElementById('metadata-tbody');
-        tbody.innerHTML = '';
-
-        const keys = Object.keys(allMetaData);
-        if (keys.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="2" style="text-align: center;">Nie znaleziono metadanych EXIF w tym pliku.</td></tr>';
-          clearMapMarker();
-          return;
-        }
-
-        keys.forEach(key => {
-          if (key === 'thumbnail') return; // Pomijamy binarną miniaturkę
-          const val = allMetaData[key];
-          const row = document.createElement('tr');
-          row.innerHTML = `<td>${key}</td><td>${escapeHtml(String(val))}</td>`;
-          tbody.appendChild(row);
-        });
-
-        // Obsługa GPS
-        const lat = EXIF.getTag(this, "GPSLatitude");
-        const lon = EXIF.getTag(this, "GPSLongitude");
-        const latRef = EXIF.getTag(this, "GPSLatitudeRef") || "N";
-        const lonRef = EXIF.getTag(this, "GPSLongitudeRef") || "E";
-
-        if (lat && lon) {
-          const decimalLat = convertDMSToDD(lat[0], lat[1], lat[2], latRef);
-          const decimalLon = convertDMSToDD(lon[0], lon[1], lon[2], lonRef);
-          updateMap(decimalLat, decimalLon);
-        } else {
-          clearMapMarker();
-        }
-      });
-    }
-
-    function convertDMSToDD(degrees, minutes, seconds, direction) {
-      let dd = degrees + (minutes / 60) + (seconds / 3600);
-      if (direction === "S" || direction === "W") {
-        dd = dd * -1;
-      }
-      return dd;
-    }
-
-    function updateMap(lat, lon) {
-      document.getElementById('map-notice').style.display = 'none';
-      map.setView([lat, lon], 14);
-
-      if (marker) {
-        marker.setLatLng([lat, lon]);
-      } else {
-        marker = L.marker([lat, lon]).addTo(map);
-      }
-      marker.bindPopup(`<b>Lokalizacja zdjęcia</b><br>Lat: ${lat.toFixed(5)}<br>Lon: ${lon.toFixed(5)}`).openPopup();
-    }
-
-    function clearMapMarker() {
-      if (marker) {
-        map.removeLayer(marker);
-        marker = null;
-      }
-      document.getElementById('map-notice').style.display = 'flex';
-    }
-
-    function stripExifAndDownload() {
-      if (!currentFile) return;
-
-      const img = new Image();
-      img.src = URL.createObjectURL(currentFile);
-
-      img.onload = function() {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-
-        // Canvas przerysowuje czyste piksele, usuwając oryginalne metadane
-        canvas.toBlob(function(blob) {
-          const cleanedUrl = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = cleanedUrl;
-          a.download = `clean_${currentFile.name}`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(cleanedUrl);
-        }, currentFile.type || 'image/jpeg');
-      };
-    }
-
-    function escapeHtml(text) {
-      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    }
-  </script>
 </body>
 </html>
