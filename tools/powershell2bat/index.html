@@ -68,19 +68,52 @@
       min-height: 100vh;
     }
 
-    .hero {
-      text-align: center;
+    .hero-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       margin-bottom: 3rem;
+      gap: 1rem;
+      flex-wrap: wrap;
     }
 
-    .hero h1 {
+    .hero-title {
+      text-align: left;
+    }
+
+    .hero-title h1 {
       font-family: 'JetBrains Mono', monospace;
-      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-size: clamp(2rem, 5vw, 3.2rem);
       font-weight: 800;
-      margin-bottom: 1rem;
+      margin-bottom: 0.5rem;
       background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 70%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+    }
+
+    .btn-home {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 0.75rem 1.4rem;
+      border-radius: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: var(--shadow);
+      transition: all 0.3s ease;
+    }
+
+    .btn-home:hover {
+      background: var(--primary);
+      border-color: var(--primary-light);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
     }
 
     .converter-grid {
@@ -93,6 +126,10 @@
     @media (max-width: 900px) {
       .converter-grid {
         grid-template-columns: 1fr;
+      }
+      .hero-header {
+        flex-direction: column;
+        align-items: flex-start;
       }
     }
 
@@ -230,10 +267,15 @@
 
 <body>
   <main class="container">
-    <section class="hero">
-      <h1>PowerShell to BAT Converter</h1>
-      <p style="color: var(--text-secondary);">Wklej skrypt PowerShell (.ps1) i wygeneruj gotowy plik wykonywalny .BAT</p>
-    </section>
+    <div class="hero-header">
+      <div class="hero-title">
+        <h1>PowerShell to BAT Converter</h1>
+        <p style="color: var(--text-secondary);">Wklej skrypt PowerShell (.ps1) i wygeneruj gotowy plik wykonywalny .BAT</p>
+      </div>
+      <a href="index.html" class="btn-home">
+        <i class="fas fa-home"></i> Strona Główna
+      </a>
+    </div>
 
     <div class="converter-grid">
       <div class="editor-card">
