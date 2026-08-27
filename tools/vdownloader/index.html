@@ -357,6 +357,7 @@
       return (match && match[2].length === 11) ? match[2] : null;
     }
 
+    // 1. Dedykowane API: YouTube (Invidious / Piped)
     async function fetchYouTubeDirect(ytId, format) {
       const invidiousInstances = [
         'https://invidious.nerdvpn.de/api/v1/videos/',
@@ -384,6 +385,67 @@
       return null;
     }
 
+    // 2. Dedykowane API: TikTok (TikWM)
+    async function fetchTikTokDirect(tiktokUrl) {
+      try {
+        const res = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(tiktokUrl)}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        
+        if (data && data.code === 0) {
+          return {
+            video: data.data.play,
+            audio: data.data.music
+          };
+        }
+      } catch (e) {
+        console.warn("Błąd TikWM API:", e);
+      }
+      return null;
+    }
+
+    // 3. Dedykowane API: Twitter / X (FixupX API)
+    async function fetchTwitterDirect(twitterUrl) {
+      try {
+        const match = twitterUrl.match(/status\/(\d+)/);
+        if (!match) return null;
+        const tweetId = match[1];
+
+        const res = await fetch(`https://api.vxtwitter.com/Twitter/status/${tweetId}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+
+        if (data && data.media_extend && data.media_extend.length > 0) {
+          const media = data.media_extend[0];
+          if (media.type === 'video' || media.type === 'gif') {
+            return media.url;
+          }
+        }
+      } catch (e) {
+        console.warn("Błąd Twitter API:", e);
+      }
+      return null;
+    }
+
+    // 4. Dedykowane API: Instagram (DDInstagram API)
+    async function fetchInstagramDirect(instaUrl) {
+      try {
+        const cleanUrl = instaUrl.split('?')[0];
+        const res = await fetch(`https://api.ddinstagram.com/oembed?url=${encodeURIComponent(cleanUrl)}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+
+        if (data && data.author_url) {
+          // Gdy oembed odpowie prawidłowo, budujemy bezpośrednie zapytanie
+          return `https://ddinstagram.com/videos/${cleanUrl.split('/p/')[1] || cleanUrl.split('/reel/')[1]}/1`;
+        }
+      } catch (e) {
+        console.warn("Błąd IG API:", e);
+      }
+      return null;
+    }
+
+    // Główna funkcja przetwarzająca
     async function fetchVideo() {
       const urlInput = document.getElementById('video-url').value.trim();
       const format = document.getElementById('opt-format').value;
@@ -405,28 +467,49 @@
       statusBox.style.display = 'block';
       statusTitle.style.color = '#f0b90b';
       statusTitle.innerHTML = `<span class="spinner"></span> Pobieranie danych z API...`;
-      statusDesc.innerHTML = 'Przetwarzanie zapytania...';
+      statusDesc.innerHTML = 'Przetwarzanie zapytania przez dedykowane silniki...';
 
-      // 1. Zapasowa, bezpośrednia obsługa YouTube za pomocą Invidious API
+      // SPRAWDZANIE DEDYROWANYCH API
+
+      // 1. YouTube Engine
       const ytId = extractYouTubeId(urlInput);
       if (ytId) {
         const directYtUrl = await fetchYouTubeDirect(ytId, format);
         if (directYtUrl) {
-          statusTitle.style.color = '#2ea44f';
-          statusTitle.innerHTML = `<i class="fas fa-check-circle"></i> Plik YouTube jest gotowy!`;
-          statusDesc.innerHTML = `
-            Wygenerowano bezpośredni strumień.<br>
-            <a href="${directYtUrl}" target="_blank" rel="noopener noreferrer" class="btn-download-direct" download="youtube_${ytId}.${format === 'audio' ? 'm4a' : 'mp4'}">
-              <i class="fas fa-file-download"></i> Pobierz plik teraz
-            </a>
-          `;
-          btn.disabled = false;
-          btn.innerHTML = `<i class="fas fa-download"></i> Przetwarzaj i Pobierz`;
+          renderSuccess(directYtUrl, 'YouTube Engine');
           return;
         }
       }
 
-      // 2. Obsługa pozostałych serwisów (oraz zapasowa dla YT) za pomocą aktualnych instancji Cobalt API
+      // 2. TikTok Engine
+      if (urlInput.includes('tiktok.com')) {
+        const tiktokData = await fetchTikTokDirect(urlInput);
+        if (tiktokData) {
+          const downloadUrl = format === 'audio' ? tiktokData.audio : tiktokData.video;
+          renderSuccess(downloadUrl, 'TikWM Engine');
+          return;
+        }
+      }
+
+      // 3. Twitter/X Engine
+      if (urlInput.includes('twitter.com') || urlInput.includes('x.com')) {
+        const twitterUrl = await fetchTwitterDirect(urlInput);
+        if (twitterUrl) {
+          renderSuccess(twitterUrl, 'VxTwitter Engine');
+          return;
+        }
+      }
+
+      // 4. Instagram Engine
+      if (urlInput.includes('instagram.com')) {
+        const instaUrl = await fetchInstagramDirect(urlInput);
+        if (instaUrl) {
+          renderSuccess(instaUrl, 'DDInstagram Engine');
+          return;
+        }
+      }
+
+      // 5. Zapasowy silnik: Cobalt API (Dla pozostałych platform np. Reddit, FB, SoundCloud, Vimeo itd.)
       const payload = {
         url: urlInput,
         videoQuality: quality,
@@ -437,7 +520,8 @@
       const cobaltInstances = [
         'https://co.wuk.sh/api/json',
         'https://cobalt-api.kwiatekm.pl/',
-        'https://api.cobalt.crush.top/'
+        'https://api.cobalt.crush.top/',
+        'https://cobalt.api.sc7.io/'
       ];
 
       let success = false;
@@ -462,503 +546,36 @@
 
             if (!downloadUrl) continue;
 
-            statusTitle.style.color = '#2ea44f';
-            statusTitle.innerHTML = `<i class="fas fa-check-circle"></i> Plik jest gotowy!`;
-            statusDesc.innerHTML = `
-              Przetwarzanie zakończone sukcesem.<br>
-              <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" class="btn-download-direct" download>
-                <i class="fas fa-file-download"></i> Pobierz plik teraz
-              </a>
-            `;
+            renderSuccess(downloadUrl, 'Cobalt Engine');
             success = true;
             break;
           }
         } catch (err) {
-          console.warn("Instancja niedostępna:", instanceUrl);
+          console.warn("Instancja Cobalt niedostępna:", instanceUrl);
         }
       }
 
       if (!success) {
         statusTitle.style.color = '#da3633';
         statusTitle.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Wystąpił błąd`;
-        statusDesc.innerHTML = `Nie udało się przetworzyć linku. Sprawdź, czy adres URL jest prawidłowy.`;
+        statusDesc.innerHTML = `Nie udało się przetworzyć linku. Upewnij się, że adres URL jest prawidłowy oraz publiczny.`;
       }
 
       btn.disabled = false;
       btn.innerHTML = `<i class="fas fa-download"></i> Przetwarzaj i Pobierz`;
-    }
-  </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="pl">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VDownloader - Universal Video Downloader</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  
-  <style>
-    :root {
-      --primary: #36454F;
-      --primary-light: #4a5e6e;
-      --primary-dark: #253340;
-      --bg-primary: #0d1117;
-      --bg-secondary: #161b22;
-      --bg-card: #21262d;
-      --text-primary: #f0f6fc;
-      --text-secondary: #8b949e;
-      --accent-gold: #f0b90b;
-      --accent-green: #2ea44f;
-      --accent-red: #da3633;
-      --border-color: rgba(54, 69, 79, 0.4);
-      --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-      --shadow-hover: 0 16px 48px rgba(54, 69, 79, 0.4);
-      --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 50%, #5a6d7a 100%);
-    }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: 'Inter', sans-serif;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      line-height: 1.6;
-      overflow-x: hidden;
-      position: relative;
-    }
-
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-image: 
-        radial-gradient(circle at 20% 80%, rgba(54,69,79,0.15) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(54,69,79,0.15) 0%, transparent 50%),
-        radial-gradient(circle at 40% 40%, rgba(54,69,79,0.08) 0%, transparent 50%);
-      pointer-events: none;
-      z-index: -1;
-      animation: float 20s ease-in-out infinite;
-    }
-
-    @keyframes float {
-      0%, 100% { transform: translateY(0px) rotate(0deg); }
-      33% { transform: translateY(-20px) rotate(-1deg); }
-      66% { transform: translateY(10px) rotate(1deg); }
-    }
-
-    .container {
-      max-width: 950px;
-      margin: 0 auto;
-      padding: 3rem 1.5rem;
-      min-height: 100vh;
-    }
-
-    .hero-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 2.5rem;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .hero-title h1 {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: clamp(2rem, 5vw, 3rem);
-      font-weight: 800;
-      margin-bottom: 0.5rem;
-      background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary-light) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .btn-home {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.6rem;
-      background: var(--bg-card);
-      color: var(--text-primary);
-      border: 1px solid var(--border-color);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.9rem;
-      font-weight: 600;
-      padding: 0.75rem 1.3rem;
-      border-radius: 12px;
-      cursor: pointer;
-      text-decoration: none;
-      box-shadow: var(--shadow);
-      transition: all 0.3s ease;
-    }
-
-    .btn-home:hover {
-      background: var(--primary);
-      border-color: var(--primary-light);
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-hover);
-    }
-
-    .platform-badges {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 2rem;
-      flex-wrap: wrap;
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      padding: 0.4rem 0.8rem;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      color: var(--text-secondary);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .download-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 20px;
-      padding: 2rem;
-      box-shadow: var(--shadow);
-      margin-bottom: 2rem;
-    }
-
-    .form-group {
-      margin-bottom: 1.25rem;
-    }
-
-    .form-group label {
-      display: block;
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      font-family: 'JetBrains Mono', monospace;
-      margin-bottom: 0.5rem;
-    }
-
-    input[type="url"], select {
-      width: 100%;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 0.85rem 1.1rem;
-      color: var(--text-primary);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.95rem;
-      outline: none;
-      transition: border-color 0.3s ease;
-    }
-
-    input[type="url"]:focus, select:focus {
-      border-color: var(--primary-light);
-    }
-
-    .options-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1.25rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.75rem;
-      background: var(--gradient-primary);
-      color: var(--text-primary);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1rem;
-      font-weight: 600;
-      padding: 0.9rem 2rem;
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
-      box-shadow: var(--shadow);
-      transition: all 0.3s ease;
-      width: 100%;
-      text-decoration: none;
-    }
-
-    .btn:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-hover);
-    }
-
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .status-card {
-      display: none;
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 20px;
-      padding: 1.5rem;
-      box-shadow: var(--shadow);
-      animation: fadeIn 0.4s ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .status-header {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      font-family: 'JetBrains Mono', monospace;
-      font-weight: 600;
-      margin-bottom: 0.75rem;
-    }
-
-    .status-details {
-      color: var(--text-secondary);
-      font-size: 0.9rem;
-      line-height: 1.5;
-    }
-
-    .iframe-container {
-      width: 100%;
-      height: 60px;
-      border: none;
-      margin-top: 1rem;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    .btn-download-direct {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      background: var(--accent-green);
-      color: #fff;
-      padding: 0.75rem 1.5rem;
-      border-radius: 10px;
-      text-decoration: none;
-      font-family: 'JetBrains Mono', monospace;
-      font-weight: 600;
-      margin-top: 1rem;
-      transition: background 0.2s ease;
-    }
-
-    .btn-download-direct:hover {
-      background: #268940;
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 18px;
-      height: 18px;
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top-color: #fff;
-      animation: spin 1s ease-in-out infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  </style>
-</head>
-<body>
-  <main class="container">
-    <div class="hero-header">
-      <div class="hero-title">
-        <h1>VDownloader</h1>
-        <p style="color: var(--text-secondary);">Multi-engine downloader z obsługą Y2Mate API oraz Cobalt.</p>
-      </div>
-      <a href="../../" class="btn-home">
-        <i class="fas fa-home"></i> Strona Główna
-      </a>
-    </div>
-
-    <div class="platform-badges">
-      <span class="badge"><i class="fab fa-youtube" style="color: #ff0000;"></i> YouTube</span>
-      <span class="badge"><i class="fas fa-tv" style="color: #00a1d6;"></i> Bilibili</span>
-      <span class="badge"><i class="fas fa-cloud" style="color: #1185fe;"></i> Bluesky</span>
-      <span class="badge"><i class="fas fa-play-circle" style="color: #0066dc;"></i> Dailymotion</span>
-      <span class="badge"><i class="fab fa-facebook" style="color: #1877f2;"></i> Facebook</span>
-      <span class="badge"><i class="fab fa-instagram" style="color: #e4405f;"></i> Instagram</span>
-      <span class="badge"><i class="fas fa-video" style="color: #625df5;"></i> Loom</span>
-      <span class="badge"><i class="fas fa-user-friends" style="color: #ee8208;"></i> OK.ru</span>
-      <span class="badge"><i class="fab fa-pinterest" style="color: #e60023;"></i> Pinterest</span>
-      <span class="badge"><i class="fas fa-skull" style="color: #ffaa00;"></i> Newgrounds</span>
-      <span class="badge"><i class="fab fa-reddit" style="color: #ff4500;"></i> Reddit</span>
-      <span class="badge"><i class="fas fa-play" style="color: #000000;"></i> Rutube</span>
-      <span class="badge"><i class="fab fa-snapchat" style="color: #fffc00;"></i> Snapchat</span>
-      <span class="badge"><i class="fab fa-soundcloud" style="color: #ff5500;"></i> SoundCloud</span>
-      <span class="badge"><i class="fas fa-film" style="color: #0f75fc;"></i> Streamable</span>
-      <span class="badge"><i class="fab fa-tiktok" style="color: #25f4ee;"></i> TikTok</span>
-      <span class="badge"><i class="fab fa-tumblr" style="color: #36465d;"></i> Tumblr</span>
-      <span class="badge"><i class="fab fa-twitch" style="color: #9146ff;"></i> Twitch Clips</span>
-      <span class="badge"><i class="fab fa-twitter" style="color: #1da1f2;"></i> Twitter / X</span>
-      <span class="badge"><i class="fab fa-vimeo" style="color: #1ab7ea;"></i> Vimeo</span>
-      <span class="badge"><i class="fab fa-vk" style="color: #4c75a3;"></i> VK</span>
-    </div>
-
-    <div class="download-card">
-      <div class="form-group">
-        <label for="video-url">Adres URL wideo lub audio:</label>
-        <input type="url" id="video-url" placeholder="Wklej link z dowolnego wspieranego serwisu..." required />
-      </div>
-
-      <div class="options-grid">
-        <div>
-          <label for="opt-format">Typ pliku:</label>
-          <select id="opt-format">
-            <option value="video">Wideo (MP4)</option>
-            <option value="audio">Tylko Audio (MP3)</option>
-          </select>
-        </div>
-        <div>
-          <label for="opt-quality">Jakość wideo:</label>
-          <select id="opt-quality">
-            <option value="1080">1080p</option>
-            <option value="720">720p</option>
-            <option value="480">480p</option>
-            <option value="max">Maksymalna dostępna</option>
-          </select>
-        </div>
-      </div>
-
-      <button class="btn" id="btn-submit" onclick="fetchVideo()">
-        <i class="fas fa-download"></i> Przetwarzaj i Pobierz
-      </button>
-    </div>
-
-    <div class="status-card" id="status-box">
-      <div class="status-header" id="status-title">
-        <i class="fas fa-info-circle"></i> Status przetwarzania
-      </div>
-      <div class="status-details" id="status-desc">
-        ---
-      </div>
-    </div>
-  </main>
-
-  <script>
-    function extractYouTubeId(url) {
-      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-      const match = url.match(regExp);
-      return (match && match[2].length === 11) ? match[2] : null;
-    }
-
-    async function fetchVideo() {
-      const urlInput = document.getElementById('video-url').value.trim();
-      const format = document.getElementById('opt-format').value;
-      const quality = document.getElementById('opt-quality').value;
-
-      if (!urlInput) {
-        alert("Wklej prawidłowy odnośnik!");
-        return;
-      }
-
-      const btn = document.getElementById('btn-submit');
-      const statusBox = document.getElementById('status-box');
-      const statusTitle = document.getElementById('status-title');
-      const statusDesc = document.getElementById('status-desc');
-
-      btn.disabled = true;
-      btn.innerHTML = `<span class="spinner"></span> Generowanie linku...`;
-
-      statusBox.style.display = 'block';
-      statusTitle.style.color = '#f0b90b';
-      statusTitle.innerHTML = `<span class="spinner"></span> Łączenie z Silnikami API...`;
-      statusDesc.innerHTML = 'Sprawdzanie dostępności mediów...';
-
-      // OPCJA 1: Jeśli link pochodzi z YouTube, używamy najpierw dedykowanego Y2Mate / Vevioz API
-      const ytId = extractYouTubeId(urlInput);
-      if (ytId) {
-        const mode = format === 'audio' ? 'mp3' : 'videos';
-        const embedUrl = `https://api.vevioz.com/api/button/${mode}/${ytId}`;
-        
+      function renderSuccess(url, engineName) {
         statusTitle.style.color = '#2ea44f';
-        statusTitle.innerHTML = `<i class="fas fa-check-circle"></i> Gotowe do pobrania (Y2Mate Engine)`;
+        statusTitle.innerHTML = `<i class="fas fa-check-circle"></i> Plik jest gotowy! (${engineName})`;
         statusDesc.innerHTML = `
-          Kliknij poniższy przycisk, aby wygenerować i pobrać plik bezpośrednio:<br>
-          <iframe class="iframe-container" src="${embedUrl}" scrolling="no"></iframe>
+          Przetwarzanie zakończone sukcesem.<br>
+          <a href="${url}" target="_blank" rel="noopener noreferrer" class="btn-download-direct" download>
+            <i class="fas fa-file-download"></i> Pobierz plik teraz
+          </a>
         `;
-        
         btn.disabled = false;
         btn.innerHTML = `<i class="fas fa-download"></i> Przetwarzaj i Pobierz`;
-        return;
       }
-
-      // OPCJA 2: Dla pozostałych platform (TikTok, IG, FB, Twitter itp.) używamy zapasowych instancji Cobalt API
-      const payload = {
-        url: urlInput,
-        videoQuality: quality,
-        downloadMode: format === 'audio' ? 'audio' : 'auto',
-        audioFormat: 'mp3'
-      };
-
-      const cobaltInstances = [
-        'https://co.wuk.sh/api/json',
-        'https://api.cobalt.tools/',
-        'https://cobalt-api.kwiatekm.pl/',
-        'https://api.cobalt.crush.top/'
-      ];
-
-      let success = false;
-
-      for (const instanceUrl of cobaltInstances) {
-        try {
-          const response = await fetch(instanceUrl, {
-            method: 'POST',
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-          });
-
-          if (!response.ok) continue;
-
-          const data = await response.json();
-
-          if (data && (data.status === 'stream' || data.status === 'redirect' || data.status === 'picker' || data.url)) {
-            const downloadUrl = data.url || (data.picker && data.picker[0] ? data.picker[0].url : null);
-
-            if (!downloadUrl) continue;
-
-            statusTitle.style.color = '#2ea44f';
-            statusTitle.innerHTML = `<i class="fas fa-check-circle"></i> Plik jest gotowy! (Cobalt Engine)`;
-            statusDesc.innerHTML = `
-              Przetwarzanie zakończone sukcesem.<br>
-              <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" class="btn-download-direct" download>
-                <i class="fas fa-file-download"></i> Pobierz plik teraz
-              </a>
-            `;
-            success = true;
-            break;
-          }
-        } catch (err) {
-          console.warn("Instancja niedostępna:", instanceUrl);
-        }
-      }
-
-      if (!success) {
-        statusTitle.style.color = '#da3633';
-        statusTitle.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Wystąpił błąd`;
-        statusDesc.innerHTML = `Nie udało się pobrać pliku. Upewnij się, że link jest publiczny i spróbuj ponownie.`;
-      }
-
-      btn.disabled = false;
-      btn.innerHTML = `<i class="fas fa-download"></i> Przetwarzaj i Pobierz`;
     }
   </script>
 </body>
