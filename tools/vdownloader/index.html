@@ -155,7 +155,7 @@
       margin-bottom: 0.5rem;
     }
 
-    input[type="url"], input[type="text"], input[type="password"], select {
+    input[type="url"], select {
       width: 100%;
       background: var(--bg-secondary);
       border: 1px solid var(--border-color);
@@ -168,7 +168,7 @@
       transition: border-color 0.3s ease;
     }
 
-    input[type="url"]:focus, input[type="text"]:focus, input[type="password"]:focus, select:focus {
+    input[type="url"]:focus, select:focus {
       border-color: var(--primary-light);
     }
 
@@ -177,29 +177,6 @@
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 1.25rem;
       margin-bottom: 1.5rem;
-    }
-
-    .config-details {
-      background: rgba(13, 17, 23, 0.6);
-      border: 1px dashed var(--border-color);
-      border-radius: 12px;
-      padding: 1rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .config-details summary {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      cursor: pointer;
-      user-select: none;
-    }
-
-    .config-details .config-content {
-      margin-top: 1rem;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 1rem;
     }
 
     .btn {
@@ -263,9 +240,23 @@
       line-height: 1.5;
     }
 
-    .status-details a {
-      color: var(--accent-gold);
-      text-decoration: underline;
+    .btn-download-direct {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--accent-green);
+      color: #fff;
+      padding: 0.75rem 1.5rem;
+      border-radius: 10px;
+      text-decoration: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      margin-top: 1rem;
+      transition: background 0.2s ease;
+    }
+
+    .btn-download-direct:hover {
+      background: #268940;
     }
 
     .spinner {
@@ -288,7 +279,7 @@
     <div class="hero-header">
       <div class="hero-title">
         <h1>VDownloader</h1>
-        <p style="color: var(--text-secondary);">Pobieraj materiały wideo i audio za pomocą GitHub Actions (Ubuntu + yt-dlp).</p>
+        <p style="color: var(--text-secondary);">Pobieraj materiały z YouTube, TikTok, Facebook i Instagram za darmo przez Cobalt API.</p>
       </div>
       <a href="../../" class="btn-home">
         <i class="fas fa-home"></i> Strona Główna
@@ -304,55 +295,37 @@
 
     <div class="download-card">
       <div class="form-group">
-        <label for="video-url">URL Wideo / Audio:</label>
+        <label for="video-url">Adres URL wideo:</label>
         <input type="url" id="video-url" placeholder="Wklej link (np. https://www.youtube.com/watch?v=...)" required />
       </div>
 
       <div class="options-grid">
         <div>
-          <label for="opt-format">Format wyjściowy:</label>
+          <label for="opt-format">Typ pliku:</label>
           <select id="opt-format">
-            <option value="mp4">Wideo (MP4)</option>
-            <option value="mp3">Audio (MP3)</option>
+            <option value="video">Wideo (MP4)</option>
+            <option value="audio">Tylko Audio (MP3)</option>
           </select>
         </div>
         <div>
           <label for="opt-quality">Jakość wideo:</label>
           <select id="opt-quality">
-            <option value="best">Najwyższa dostępna</option>
             <option value="1080">1080p</option>
             <option value="720">720p</option>
             <option value="480">480p</option>
+            <option value="max">Maksymalna dostępna</option>
           </select>
         </div>
       </div>
 
-      <details class="config-details">
-        <summary><i class="fas fa-cog"></i> Konfiguracja API GitHub</summary>
-        <div class="config-content">
-          <div>
-            <label for="cfg-token">Personal Access Token (PAT):</label>
-            <input type="password" id="cfg-token" placeholder="ghp_xxxxxxxxxxxx" />
-          </div>
-          <div>
-            <label for="cfg-owner">Nazwa użytkownika GitHub:</label>
-            <input type="text" id="cfg-owner" placeholder="np. michal" />
-          </div>
-          <div>
-            <label for="cfg-repo">Nazwa Repozytorium:</label>
-            <input type="text" id="cfg-repo" placeholder="np. mightytools" />
-          </div>
-        </div>
-      </details>
-
-      <button class="btn" id="btn-submit" onclick="triggerGitHubDownload()">
-        <i class="fas fa-cloud-download-alt"></i> Zleć pobieranie do GitHub Actions
+      <button class="btn" id="btn-submit" onclick="fetchWithCobalt()">
+        <i class="fas fa-download"></i> Przetwarzaj i Pobierz
       </button>
     </div>
 
     <div class="status-card" id="status-box">
       <div class="status-header" id="status-title">
-        <i class="fas fa-info-circle"></i> Status przetwarzania
+        <i class="fas fa-info-circle"></i> Status przetwarzenia
       </div>
       <div class="status-details" id="status-desc">
         ---
@@ -361,34 +334,15 @@
   </main>
 
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      if (localStorage.getItem("vdl_gh_token")) document.getElementById("cfg-token").value = localStorage.getItem("vdl_gh_token");
-      if (localStorage.getItem("vdl_gh_owner")) document.getElementById("cfg-owner").value = localStorage.getItem("vdl_gh_owner");
-      if (localStorage.getItem("vdl_gh_repo")) document.getElementById("cfg-repo").value = localStorage.getItem("vdl_gh_repo");
-    });
-
-    async function triggerGitHubDownload() {
+    async function fetchWithCobalt() {
       const urlInput = document.getElementById('video-url').value.trim();
       const format = document.getElementById('opt-format').value;
       const quality = document.getElementById('opt-quality').value;
 
-      const token = document.getElementById('cfg-token').value.trim();
-      const owner = document.getElementById('cfg-owner').value.trim();
-      const repo = document.getElementById('cfg-repo').value.trim();
-
       if (!urlInput) {
-        alert("Wklej prawidłowy link do wideo!");
+        alert("Wklej prawidłowy odnośnik!");
         return;
       }
-
-      if (!token || !owner || !repo) {
-        alert("Uzupełnij konfigurację GitHub API w sekcji poniżej!");
-        return;
-      }
-
-      localStorage.setItem("vdl_gh_token", token);
-      localStorage.setItem("vdl_gh_owner", owner);
-      localStorage.setItem("vdl_gh_repo", repo);
 
       const btn = document.getElementById('btn-submit');
       const statusBox = document.getElementById('status-box');
@@ -396,50 +350,57 @@
       const statusDesc = document.getElementById('status-desc');
 
       btn.disabled = true;
-      btn.innerHTML = `<span class="spinner"></span> Wysyłanie zadania...`;
+      btn.innerHTML = `<span class="spinner"></span> Generowanie linku...`;
 
       statusBox.style.display = 'block';
       statusTitle.style.color = '#f0b90b';
-      statusTitle.innerHTML = `<span class="spinner"></span> Nawiązywanie połączenia z GitHub API...`;
-      statusDesc.innerHTML = 'Zlecenie pobierania jest wysyłane do Twójego repozytorium GitHub.';
+      statusTitle.innerHTML = `<span class="spinner"></span> Pobieranie strumienia przez Cobalt API...`;
+      statusDesc.innerHTML = 'Przetwarzanie zapytania... Za chwilę otrzymasz bezpośredni plik.';
 
       try {
-        const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/dispatches`, {
+        const payload = {
+          url: urlInput,
+          videoQuality: quality,
+          downloadMode: format === 'audio' ? 'audio' : 'auto',
+          audioFormat: 'mp3'
+        };
+
+        const response = await fetch('https://api.cobalt.tools/api/json', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/vnd.github.v3+json',
+            'Accept': 'application/json',
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            event_type: 'download_video',
-            client_payload: {
-              url: urlInput,
-              format: format,
-              quality: quality
-            }
-          })
+          body: JSON.stringify(payload)
         });
 
-        if (response.ok || response.status === 204) {
+        const data = await response.json();
+
+        if (data.status === 'stream' || data.status === 'redirect' || data.status === 'picker') {
+          const downloadUrl = data.url || (data.picker && data.picker[0] ? data.picker[0].url : null);
+          
+          if (!downloadUrl) throw new Error("Nie udało się wyciągnąć bezpośredniego adresu pliku.");
+
           statusTitle.style.color = '#2ea44f';
-          statusTitle.innerHTML = `<i class="fas fa-check-circle"></i> Zadanie zostało zlecone!`;
+          statusTitle.innerHTML = `<i class="fas fa-check-circle"></i> Plik jest gotowy!`;
           statusDesc.innerHTML = `
-            GitHub Actions (maszyna Ubuntu) rozpoczęła pobieranie strumienia za pomocą <code>yt-dlp</code>.<br><br>
-            Gotowy plik z wideo/audio pojawi się w zakładce Artifacts w ciągu kilkudziesięciu sekund.<br><br>
-            👉 <a href="https://github.com/${owner}/${repo}/actions" target="_blank">Otwórz zakładkę GitHub Actions w swoim repozytorium</a>
+            Przetwarzanie zakończone sukcesem.<br>
+            <a href="${downloadUrl}" target="_blank" class="btn-download-direct" download>
+              <i class="fas fa-file-download"></i> Pobierz plik teraz
+            </a>
           `;
+        } else if (data.status === 'error') {
+          throw new Error(data.text || "Cobalt API zwróciło błąd podczas przetwarzania.");
         } else {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.message || `Błąd serwera (Status: ${response.status})`);
+          throw new Error("Otrzymano nieznany status z API.");
         }
       } catch (err) {
         statusTitle.style.color = '#da3633';
         statusTitle.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Wystąpił błąd`;
-        statusDesc.innerHTML = `Nie udało się uruchomić akcji. Szczegóły: <code>${err.message}</code><br>Sprawdź poprawność tokena PAT oraz nazwę repozytorium.`;
+        statusDesc.innerHTML = `Nie udało się pobrać multimediów.<br>Szczegóły: <code>${err.message}</code>`;
       } finally {
         btn.disabled = false;
-        btn.innerHTML = `<i class="fas fa-cloud-download-alt"></i> Zleć pobieranie do GitHub Actions`;
+        btn.innerHTML = `<i class="fas fa-download"></i> Przetwarzaj i Pobierz`;
       }
     }
   </script>
