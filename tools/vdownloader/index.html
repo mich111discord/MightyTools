@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VDownloader - Universal Video Downloader</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  
+  <style>
+    :root {
+      --primary: #36454F;
+      --primary-light: #4a5e6e;
+      --primary-dark: #253340;
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-card: #21262d;
+      --text-primary: #f0f6fc;
+      --text-secondary: #8b949e;
+      --accent-gold: #f0b90b;
+      --border-color: rgba(54, 69, 79, 0.4);
+      --shadow: 0 8px 32px rgba(54, 69, 79, 0.3);
+      --shadow-hover: 0 16px 48px rgba(54, 69, 79, 0.4);
+      --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 50%, #5a6d7a 100%);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        radial-gradient(circle at 20% 80%, rgba(54,69,79,0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(54,69,79,0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(54,69,79,0.05) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: -1;
+      animation: float 20s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      33% { transform: translateY(-20px) rotate(1deg); }
+      66% { transform: translateY(10px) rotate(-1deg); }
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 3rem 2rem;
+      min-height: 100vh;
+    }
+
+    .hero-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2.5rem;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .hero-title h1 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 70%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .btn-home {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 0.75rem 1.4rem;
+      border-radius: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: var(--shadow);
+      transition: all 0.3s ease;
+    }
+
+    .btn-home:hover {
+      background: var(--primary);
+      border-color: var(--primary-light);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .platform-badges {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .badge i {
+      font-size: 1rem;
+    }
+
+    .download-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 2rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 2rem;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    @media (max-width: 600px) {
+      .input-group {
+        flex-direction: column;
+      }
+    }
+
+    input[type="url"] {
+      flex: 1;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1rem 1.2rem;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.3s ease;
+    }
+
+    input[type="url"]:focus {
+      border-color: var(--primary-light);
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    select {
+      width: 100%;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      background: var(--gradient-primary);
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 0.85rem 2rem;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      transition: all 0.3s ease;
+      text-decoration: none;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .result-card {
+      display: none;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      animation: fadeIn 0.4s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .video-info {
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+    }
+
+    @media (max-width: 600px) {
+      .video-info {
+        flex-direction: column;
+        text-align: center;
+      }
+    }
+
+    .video-thumb {
+      width: 180px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    .video-details h3 {
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .video-details p {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .spinner {
+      display: none;
+      margin: 1rem auto;
+      border: 4px solid var(--bg-secondary);
+      border-left-color: var(--accent-gold);
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <div class="hero-header">
+      <div class="hero-title">
+        <h1>VDownloader</h1>
+        <p style="color: var(--text-secondary);">Pobieraj materiały wideo i audio z najpopularniejszych platform social media.</p>
+      </div>
+      <a href="../../" class="btn-home">
+        <i class="fas fa-home"></i> Strona Główna
+      </a>
+    </div>
+
+    <div class="platform-badges">
+      <span class="badge"><i class="fab fa-youtube" style="color: #ff0000;"></i> YouTube</span>
+      <span class="badge"><i class="fab fa-tiktok" style="color: #25f4ee;"></i> TikTok</span>
+      <span class="badge"><i class="fab fa-facebook" style="color: #1877f2;"></i> Facebook</span>
+      <span class="badge"><i class="fab fa-instagram" style="color: #e4405f;"></i> Instagram</span>
+    </div>
+
+    <div class="download-card">
+      <div class="input-group">
+        <input type="url" id="video-url" placeholder="Wklej link do wideo (np. https://www.youtube.com/watch?v=...)" required />
+      </div>
+
+      <div class="options-grid">
+        <div>
+          <label style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 0.4rem;">Format:</label>
+          <select id="opt-format">
+            <option value="mp4">Wideo (MP4)</option>
+            <option value="mp3">Audio (MP3)</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 0.4rem;">Jakość:</label>
+          <select id="opt-quality">
+            <option value="best">Najwyższa dostępna</option>
+            <option value="1080">1080p</option>
+            <option value="720">720p</option>
+            <option value="480">480p</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn" style="width: 100%;" id="btn-fetch" onclick="processDownload()">
+        <i class="fas fa-download"></i> Przetwarzaj i Pobierz
+      </button>
+
+      <div class="spinner" id="loading-spinner"></div>
+    </div>
+
+    <div class="result-card" id="result-box">
+      <div class="video-info">
+        <img id="res-thumb" class="video-thumb" src="" alt="Miniaturka" />
+        <div class="video-details">
+          <h3 id="res-title">Tytuł wideo</h3>
+          <p id="res-duration">Czas trwania: --:--</p>
+          <a id="res-download-link" class="btn" style="margin-top: 1rem; display: inline-flex;" download>
+            <i class="fas fa-file-download"></i> Pobierz Plik
+          </a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Zmień ten URL na adres swojego działającego backendu
+    const API_BACKEND_URL = "http://localhost:8000/download";
+
+    async function processDownload() {
+      const urlInput = document.getElementById('video-url').value.trim();
+      const format = document.getElementById('opt-format').value;
+      const quality = document.getElementById('opt-quality').value;
+      const btn = document.getElementById('btn-fetch');
+      const spinner = document.getElementById('loading-spinner');
+      const resultBox = document.getElementById('result-box');
+
+      if (!urlInput) {
+        alert("Wklej prawidłowy adres URL!");
+        return;
+      }
+
+      btn.disabled = true;
+      spinner.style.display = 'block';
+      resultBox.style.display = 'none';
+
+      try {
+        const response = await fetch(API_BACKEND_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: urlInput, format: format, quality: quality })
+        });
+
+        if (!response.ok) {
+          throw new Error("Błąd podczas przetwarzania wideo przez backend.");
+        }
+
+        const data = await response.json();
+
+        document.getElementById('res-thumb').src = data.thumbnail;
+        document.getElementById('res-title').innerText = data.title;
+        document.getElementById('res-duration').innerText = `Czas trwania: ${data.duration}`;
+        document.getElementById('res-download-link').href = data.download_url;
+
+        resultBox.style.display = 'block';
+      } catch (err) {
+        alert("Wystąpił błąd: " + err.message + "\nUpewnij się, że backend jest uruchomiony.");
+      } finally {
+        btn.disabled = false;
+        spinner.style.display = 'none';
+      }
+    }
+  </script>
+</body>
+</html>
