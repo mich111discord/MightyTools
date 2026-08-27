@@ -59,12 +59,12 @@
 
     @keyframes float {
       0%, 100% { transform: translateY(0px) rotate(0deg); }
-      33% { transform: translateY(-20px) rotate(1deg); }
-      66% { transform: translateY(10px) rotate(-1deg); }
+      33% { transform: translateY(-20px) rotate(-1deg); }
+      66% { transform: translateY(10px) rotate(1deg); }
     }
 
     .container {
-      max-width: 900px;
+      max-width: 950px;
       margin: 0 auto;
       padding: 3rem 1.5rem;
       min-height: 100vh;
@@ -116,7 +116,7 @@
 
     .platform-badges {
       display: flex;
-      gap: 0.75rem;
+      gap: 0.5rem;
       margin-bottom: 2rem;
       flex-wrap: wrap;
     }
@@ -124,12 +124,12 @@
     .badge {
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.4rem;
       background: var(--bg-card);
       border: 1px solid var(--border-color);
-      padding: 0.5rem 1rem;
+      padding: 0.4rem 0.8rem;
       border-radius: 20px;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: var(--text-secondary);
       font-family: 'JetBrains Mono', monospace;
     }
@@ -279,24 +279,42 @@
     <div class="hero-header">
       <div class="hero-title">
         <h1>VDownloader</h1>
-        <p style="color: var(--text-secondary);">Pobieraj materiały z YouTube, TikTok, Facebook i Instagram za darmo.</p>
+        <p style="color: var(--text-secondary);">Uniwersalny downloader multimediów z ponad 20 serwisów.</p>
       </div>
       <a href="../../" class="btn-home">
         <i class="fas fa-home"></i> Strona Główna
       </a>
     </div>
 
+    <!-- Dodane 20 serwisów -->
     <div class="platform-badges">
       <span class="badge"><i class="fab fa-youtube" style="color: #ff0000;"></i> YouTube</span>
-      <span class="badge"><i class="fab fa-tiktok" style="color: #25f4ee;"></i> TikTok</span>
+      <span class="badge"><i class="fas fa-tv" style="color: #00a1d6;"></i> Bilibili</span>
+      <span class="badge"><i class="fas fa-cloud" style="color: #1185fe;"></i> Bluesky</span>
+      <span class="badge"><i class="fas fa-play-circle" style="color: #0066dc;"></i> Dailymotion</span>
       <span class="badge"><i class="fab fa-facebook" style="color: #1877f2;"></i> Facebook</span>
       <span class="badge"><i class="fab fa-instagram" style="color: #e4405f;"></i> Instagram</span>
+      <span class="badge"><i class="fas fa-video" style="color: #625df5;"></i> Loom</span>
+      <span class="badge"><i class="fas fa-user-friends" style="color: #ee8208;"></i> OK.ru</span>
+      <span class="badge"><i class="fab fa-pinterest" style="color: #e60023;"></i> Pinterest</span>
+      <span class="badge"><i class="fas fa-skull" style="color: #ffaa00;"></i> Newgrounds</span>
+      <span class="badge"><i class="fab fa-reddit" style="color: #ff4500;"></i> Reddit</span>
+      <span class="badge"><i class="fas fa-play" style="color: #000000;"></i> Rutube</span>
+      <span class="badge"><i class="fab fa-snapchat" style="color: #fffc00;"></i> Snapchat</span>
+      <span class="badge"><i class="fab fa-soundcloud" style="color: #ff5500;"></i> SoundCloud</span>
+      <span class="badge"><i class="fas fa-film" style="color: #0f75fc;"></i> Streamable</span>
+      <span class="badge"><i class="fab fa-tiktok" style="color: #25f4ee;"></i> TikTok</span>
+      <span class="badge"><i class="fab fa-tumblr" style="color: #36465d;"></i> Tumblr</span>
+      <span class="badge"><i class="fab fa-twitch" style="color: #9146ff;"></i> Twitch Clips</span>
+      <span class="badge"><i class="fab fa-twitter" style="color: #1da1f2;"></i> Twitter / X</span>
+      <span class="badge"><i class="fab fa-vimeo" style="color: #1ab7ea;"></i> Vimeo</span>
+      <span class="badge"><i class="fab fa-vk" style="color: #4c75a3;"></i> VK</span>
     </div>
 
     <div class="download-card">
       <div class="form-group">
-        <label for="video-url">Adres URL wideo:</label>
-        <input type="url" id="video-url" placeholder="Wklej link (np. https://www.youtube.com/watch?v=...)" required />
+        <label for="video-url">Adres URL wideo lub audio:</label>
+        <input type="url" id="video-url" placeholder="Wklej link z dowolnego z powyższych serwisów..." required />
       </div>
 
       <div class="options-grid">
@@ -318,14 +336,14 @@
         </div>
       </div>
 
-      <button class="btn" id="btn-submit" onclick="fetchWithCobalt()">
+      <button class="btn" id="btn-submit" onclick="fetchVideo()">
         <i class="fas fa-download"></i> Przetwarzaj i Pobierz
       </button>
     </div>
 
     <div class="status-card" id="status-box">
       <div class="status-header" id="status-title">
-        <i class="fas fa-info-circle"></i> Status przetwarzenia
+        <i class="fas fa-info-circle"></i> Status przetwarzania
       </div>
       <div class="status-details" id="status-desc">
         ---
@@ -334,7 +352,7 @@
   </main>
 
   <script>
-    async function fetchWithCobalt() {
+    async function fetchVideo() {
       const urlInput = document.getElementById('video-url').value.trim();
       const format = document.getElementById('opt-format').value;
       const quality = document.getElementById('opt-quality').value;
@@ -364,17 +382,19 @@
         audioFormat: 'mp3'
       };
 
-      // Lista instancji wraz z obsługą przelotu przez proxy CORS w razie potrzeby
-      const endpoints = [
+      // Rozszerzona lista publicznych instancji Cobalt API dla najwyższej niezawodności
+      const instances = [
+        'https://co.wuk.sh/api/json',
         'https://api.cobalt.tools/',
-        'https://corsproxy.io/?' + encodeURIComponent('https://api.cobalt.tools/')
+        'https://cobalt-api.kwiatekm.pl/',
+        'https://api.cobalt.crush.top/'
       ];
 
       let success = false;
 
-      for (const endpoint of endpoints) {
+      for (const instanceUrl of instances) {
         try {
-          const response = await fetch(endpoint, {
+          const response = await fetch(instanceUrl, {
             method: 'POST',
             headers: {
               'Accept': 'application/json',
@@ -387,7 +407,7 @@
 
           const data = await response.json();
 
-          if (data.status === 'stream' || data.status === 'redirect' || data.status === 'picker' || data.url) {
+          if (data && (data.status === 'stream' || data.status === 'redirect' || data.status === 'picker' || data.url)) {
             const downloadUrl = data.url || (data.picker && data.picker[0] ? data.picker[0].url : null);
 
             if (!downloadUrl) continue;
@@ -402,18 +422,18 @@
             `;
             success = true;
             break;
-          } else if (data.status === 'error') {
-            throw new Error(data.text || "Błąd podczas przetwarzania linku.");
+          } else if (data && data.status === 'error') {
+            console.warn("Błąd zwrócony przez instancję:", data.text);
           }
         } catch (err) {
-          console.warn('Nieudana próba z endpointem:', endpoint, err);
+          console.warn("Próba połączenia z instancją nie powiodła się:", instanceUrl, err);
         }
       }
 
       if (!success) {
         statusTitle.style.color = '#da3633';
         statusTitle.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Wystąpił błąd`;
-        statusDesc.innerHTML = `Nie udało się pobrać multimediów z powodu blokady CORS lub ograniczeń API. Spróbuj innego linku.`;
+        statusDesc.innerHTML = `Nie udało się przetworzyć linku. Sprawdź, czy adres URL jest poprawny lub spróbuj ponownie za chwilę.`;
       }
 
       btn.disabled = false;
