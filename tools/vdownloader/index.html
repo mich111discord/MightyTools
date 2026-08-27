@@ -240,6 +240,15 @@
       line-height: 1.5;
     }
 
+    .iframe-container {
+      width: 100%;
+      height: 60px;
+      border: none;
+      margin-top: 1rem;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
     .btn-download-direct {
       display: inline-flex;
       align-items: center;
@@ -279,14 +288,13 @@
     <div class="hero-header">
       <div class="hero-title">
         <h1>VDownloader</h1>
-        <p style="color: var(--text-secondary);">Uniwersalny downloader multimediów z ponad 20 serwisów.</p>
+        <p style="color: var(--text-secondary);">Multi-engine downloader z obsługą Y2Mate API oraz Cobalt.</p>
       </div>
       <a href="../../" class="btn-home">
         <i class="fas fa-home"></i> Strona Główna
       </a>
     </div>
 
-    <!-- Dodane 20 serwisów -->
     <div class="platform-badges">
       <span class="badge"><i class="fab fa-youtube" style="color: #ff0000;"></i> YouTube</span>
       <span class="badge"><i class="fas fa-tv" style="color: #00a1d6;"></i> Bilibili</span>
@@ -314,7 +322,7 @@
     <div class="download-card">
       <div class="form-group">
         <label for="video-url">Adres URL wideo lub audio:</label>
-        <input type="url" id="video-url" placeholder="Wklej link z dowolnego z powyższych serwisów..." required />
+        <input type="url" id="video-url" placeholder="Wklej link z dowolnego wspieranego serwisu..." required />
       </div>
 
       <div class="options-grid">
@@ -352,6 +360,12 @@
   </main>
 
   <script>
+    function extractYouTubeId(url) {
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+      const match = url.match(regExp);
+      return (match && match[2].length === 11) ? match[2] : null;
+    }
+
     async function fetchVideo() {
       const urlInput = document.getElementById('video-url').value.trim();
       const format = document.getElementById('opt-format').value;
@@ -372,9 +386,28 @@
 
       statusBox.style.display = 'block';
       statusTitle.style.color = '#f0b90b';
-      statusTitle.innerHTML = `<span class="spinner"></span> Pobieranie strumienia przez API...`;
-      statusDesc.innerHTML = 'Przetwarzanie zapytania... Za chwilę otrzymasz bezpośredni plik.';
+      statusTitle.innerHTML = `<span class="spinner"></span> Łączenie z Silnikami API...`;
+      statusDesc.innerHTML = 'Sprawdzanie dostępności mediów...';
 
+      // OPCJA 1: Jeśli link pochodzi z YouTube, używamy najpierw dedykowanego Y2Mate / Vevioz API
+      const ytId = extractYouTubeId(urlInput);
+      if (ytId) {
+        const mode = format === 'audio' ? 'mp3' : 'videos';
+        const embedUrl = `https://api.vevioz.com/api/button/${mode}/${ytId}`;
+        
+        statusTitle.style.color = '#2ea44f';
+        statusTitle.innerHTML = `<i class="fas fa-check-circle"></i> Gotowe do pobrania (Y2Mate Engine)`;
+        statusDesc.innerHTML = `
+          Kliknij poniższy przycisk, aby wygenerować i pobrać plik bezpośrednio:<br>
+          <iframe class="iframe-container" src="${embedUrl}" scrolling="no"></iframe>
+        `;
+        
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fas fa-download"></i> Przetwarzaj i Pobierz`;
+        return;
+      }
+
+      // OPCJA 2: Dla pozostałych platform (TikTok, IG, FB, Twitter itp.) używamy zapasowych instancji Cobalt API
       const payload = {
         url: urlInput,
         videoQuality: quality,
@@ -382,8 +415,7 @@
         audioFormat: 'mp3'
       };
 
-      // Rozszerzona lista publicznych instancji Cobalt API dla najwyższej niezawodności
-      const instances = [
+      const cobaltInstances = [
         'https://co.wuk.sh/api/json',
         'https://api.cobalt.tools/',
         'https://cobalt-api.kwiatekm.pl/',
@@ -392,7 +424,7 @@
 
       let success = false;
 
-      for (const instanceUrl of instances) {
+      for (const instanceUrl of cobaltInstances) {
         try {
           const response = await fetch(instanceUrl, {
             method: 'POST',
@@ -413,7 +445,7 @@
             if (!downloadUrl) continue;
 
             statusTitle.style.color = '#2ea44f';
-            statusTitle.innerHTML = `<i class="fas fa-check-circle"></i> Plik jest gotowy!`;
+            statusTitle.innerHTML = `<i class="fas fa-check-circle"></i> Plik jest gotowy! (Cobalt Engine)`;
             statusDesc.innerHTML = `
               Przetwarzanie zakończone sukcesem.<br>
               <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" class="btn-download-direct" download>
@@ -422,18 +454,16 @@
             `;
             success = true;
             break;
-          } else if (data && data.status === 'error') {
-            console.warn("Błąd zwrócony przez instancję:", data.text);
           }
         } catch (err) {
-          console.warn("Próba połączenia z instancją nie powiodła się:", instanceUrl, err);
+          console.warn("Instancja niedostępna:", instanceUrl);
         }
       }
 
       if (!success) {
         statusTitle.style.color = '#da3633';
         statusTitle.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Wystąpił błąd`;
-        statusDesc.innerHTML = `Nie udało się przetworzyć linku. Sprawdź, czy adres URL jest poprawny lub spróbuj ponownie za chwilę.`;
+        statusDesc.innerHTML = `Nie udało się pobrać pliku. Upewnij się, że link jest publiczny i spróbuj ponownie.`;
       }
 
       btn.disabled = false;
