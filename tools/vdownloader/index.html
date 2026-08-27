@@ -214,7 +214,8 @@
           <select id="opt-quality">
             <option value="1080">1080p</option>
             <option value="720">720p</option>
-            <option value="max">Maksymalna</option>
+            <option value="480">480p</option>
+            <option value="360">360p</option>
           </select>
         </div>
       </div>
@@ -231,9 +232,12 @@
   </main>
 
   <script>
-    // Pomocniczy fetch z bezpiecznym timeoutem (np. gdy serwer API wisi)
+    const API_KEY_SAVENOW = "dfcb6d76f2f6a9894gjkege8a4ab232222";
+    const API_SAVENOW_BASE = "https://p.savenow.to/api/v2/download";
+    const PROGRESS_SAVENOW_BASE = "https://p.savenow.to/api/progress";
+
     async function fetchWithTimeout(resource, options = {}) {
-      const { timeout = 5000 } = options;
+      const { timeout = 8000 } = options;
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), timeout);
       try {
@@ -246,25 +250,120 @@
       }
     }
 
-    function extractYouTubeId(url) {
-      const match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
-      return (match && match[2].length === 11) ? match[2] : null;
+    function updateStatus(title, desc, color = '#f0b90b') {
+      const statusTitle = document.getElementById('status-title');
+      const statusDesc = document.getElementById('status-desc');
+      statusTitle.style.color = color;
+      statusTitle.innerHTML = title;
+      statusDesc.innerHTML = desc;
     }
 
-    // 1. TikTok - TikWM
-    async function fetchTikTok(url) {
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // 1. YouTube via savenow.to API
+    async function fetchSaveNowYT(url, quality, format) {
+      const requestedFormat = (format === 'audio') ? 'mp3' : (quality || '1080');
+      const apiReqUrl = `${API_SAVENOW_BASE}?format=${encodeURIComponent(requestedFormat)}&url=${encodeURIComponent(url)}&apikey=${API_KEY_SAVENOW}`;
+
       try {
-        const res = await fetchWithTimeout(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}`, { timeout: 6000 });
+        updateStatus(`<span class="spinner"></span> Inicjalizacja YouTube API...`, 'Wysyłanie zapytania konwersji...');
+        const res = await fetchWithTimeout(apiReqUrl, { timeout: 10000 });
         if (!res.ok) return null;
         const data = await res.json();
-        if (data && data.code === 0) {
-          return { video: data.data.play, audio: data.data.music };
+
+        if (!data || !data.success || !data.id) {
+          return null;
         }
-      } catch (e) { console.warn("TikTok API nie odpowiedziało"); }
+
+        const taskId = data.id;
+        const progressUrl = `${PROGRESS_SAVENOW_BASE}?id=${taskId}`;
+
+        // Polling o postęp
+        for (let attempt = 0; attempt < 60; attempt++) {
+          await sleep(2000);
+
+          try {
+            const progRes = await fetchWithTimeout(progressUrl, { timeout: 5000 });
+            if (!progRes.ok) continue;
+            const progData = await progRes.json();
+
+            const rawProgress = progData.progress || 0;
+            const percent = Math.min(100, Math.round(rawProgress / 10));
+            const progressText = progData.text || `Przetwarzanie... ${percent}%`;
+
+            updateStatus(
+              `<span class="spinner"></span> Konwertowanie YouTube (${percent}%)`,
+              `Status: ${progressText}`
+            );
+
+            if (progData.download_url) {
+              return {
+                url: progData.download_url,
+                title: progData.title || 'YouTube_Video'
+              };
+            }
+          } catch (e) {
+            console.warn("Błąd podczas odpytywania o postęp savenow:", e);
+          }
+        }
+      } catch (e) {
+        console.warn("SaveNow API Error:", e);
+      }
       return null;
     }
 
-    // 2. Twitter / X - VxTwitter API
+    // 2. TikTok via SnapTik Engine API
+    async function fetchSnapTik(url) {
+      try {
+        updateStatus(`<span class="spinner"></span> Pobieranie z TikTok...`, 'Łączenie ze SnapTik Engine...');
+        const formData = new FormData();
+        formData.append('url', url);
+
+        const res = await fetchWithTimeout('https://snapx.app/api/ajaxSearch', {
+          method: 'POST',
+          body: formData,
+          timeout: 8000
+        });
+
+        if (!res.ok) return null;
+        const data = await res.json();
+
+        if (data && data.status === 'ok' && data.data) {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(data.data, 'text/html');
+          
+          const downloadBtn = doc.querySelector('a.button.download-file') || 
+                              doc.querySelector('a[href*="snaptik"]') || 
+                              doc.querySelector('a.btn-download') ||
+                              doc.querySelector('a[href*="tikmate"]');
+
+          if (downloadBtn && downloadBtn.href) {
+            return downloadBtn.href;
+          }
+        }
+      } catch (e) {
+        console.warn("SnapTik API Fallback attempt...", e);
+      }
+
+      // Fallback TikTok TikWM
+      try {
+        const res = await fetchWithTimeout(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}`, { timeout: 6000 });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.code === 0) {
+            return data.data.play;
+          }
+        }
+      } catch (e) {
+        console.warn("TikWM Fallback failed");
+      }
+
+      return null;
+    }
+
+    // 3. Twitter / X Engine
     async function fetchTwitter(url) {
       try {
         const match = url.match(/status\/(\d+)/);
@@ -275,43 +374,11 @@
         if (data && data.media_extend && data.media_extend[0]) {
           return data.media_extend[0].url;
         }
-      } catch (e) { console.warn("Twitter API nie odpowiedziało"); }
+      } catch (e) { console.warn("Twitter API error"); }
       return null;
     }
 
-    // 3. YouTube Direct Engine (Invidious / Piped z rotacją instancji)
-    async function fetchYouTube(ytId, format) {
-      const ytInstances = [
-        `https://invidious.nerdvpn.de/api/v1/videos/${ytId}`,
-        `https://inv.nadeko.net/api/v1/videos/${ytId}`,
-        `https://api.piped.yt/streams/${ytId}`
-      ];
-
-      for (const endpoint of ytInstances) {
-        try {
-          const res = await fetchWithTimeout(endpoint, { timeout: 4000 });
-          if (!res.ok) continue;
-          const data = await res.json();
-
-          if (endpoint.includes('piped')) {
-            if (format === 'audio') {
-              return data.audioStreams?.[0]?.url || null;
-            }
-            return data.videoStreams?.find(v => v.quality === '720p')?.url || data.videoStreams?.[0]?.url || null;
-          } else {
-            if (format === 'audio') {
-              const audioStream = data.adaptiveFormats?.find(f => f.type?.includes('audio'));
-              if (audioStream) return audioStream.url;
-            }
-            const videoStream = data.formatStreams?.find(f => f.qualityLabel === '720p') || data.formatStreams?.[0];
-            if (videoStream) return videoStream.url;
-          }
-        } catch (e) { continue; }
-      }
-      return null;
-    }
-
-    // 4. Cobalt Engine z obsługą CORS Fallback i rotacją domen
+    // 4. Cobalt Engine (Fallback ogólny)
     async function fetchCobalt(urlInput, quality, format) {
       const payload = {
         url: urlInput,
@@ -324,8 +391,7 @@
         'https://co.wuk.sh/api/json',
         'https://cobalt-api.kwiatekm.pl/',
         'https://api.cobalt.crush.top/',
-        'https://cobalt.api.sc7.io/',
-        'https://cobalt.tools/api/json'
+        'https://cobalt.api.sc7.io/'
       ];
 
       for (const instanceUrl of cobaltInstances) {
@@ -339,30 +405,14 @@
 
           if (!res.ok) continue;
           const data = await res.json();
-
           const directUrl = data.url || (data.picker && data.picker[0] ? data.picker[0].url : null);
           if (directUrl) return directUrl;
-        } catch (e) {
-          // Spróbuj przełączyć przez CORS Proxy jeśli bezpośrenia komunikacja rzuciła błąd
-          try {
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(instanceUrl)}`;
-            const res = await fetchWithTimeout(proxyUrl, {
-              method: 'POST',
-              headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload),
-              timeout: 5000
-            });
-            if (!res.ok) continue;
-            const data = await res.json();
-            const directUrl = data.url || (data.picker && data.picker[0] ? data.picker[0].url : null);
-            if (directUrl) return directUrl;
-          } catch (err) { continue; }
-        }
+        } catch (e) { continue; }
       }
       return null;
     }
 
-    // Główna logika
+    // Main execution
     async function fetchVideo() {
       const urlInput = document.getElementById('video-url').value.trim();
       const format = document.getElementById('opt-format').value;
@@ -375,62 +425,58 @@
 
       const btn = document.getElementById('btn-submit');
       const statusBox = document.getElementById('status-box');
-      const statusTitle = document.getElementById('status-title');
-      const statusDesc = document.getElementById('status-desc');
 
       btn.disabled = true;
-      btn.innerHTML = `<span class="spinner"></span> Łączenie z API...`;
-
+      btn.innerHTML = `<span class="spinner"></span> Przetwarzanie...`;
       statusBox.style.display = 'block';
-      statusTitle.style.color = '#f0b90b';
-      statusTitle.innerHTML = `<span class="spinner"></span> Przetwarzanie...`;
-      statusDesc.innerHTML = 'Przeszukiwanie serwerów i generowanie bezpośredniego odnośnika...';
 
       let downloadUrl = null;
       let engineUsed = '';
 
-      // Test 1: TikTok
-      if (urlInput.includes('tiktok.com')) {
-        const ttData = await fetchTikTok(urlInput);
-        if (ttData) {
-          downloadUrl = format === 'audio' ? ttData.audio : ttData.video;
-          engineUsed = 'TikWM Direct';
+      // Test 1: YouTube (savenow.to API)
+      if (urlInput.includes('youtube.com') || urlInput.includes('youtu.be')) {
+        const ytResult = await fetchSaveNowYT(urlInput, quality, format);
+        if (ytResult && ytResult.url) {
+          downloadUrl = ytResult.url;
+          engineUsed = 'SaveNow YouTube API (1080p Engine)';
         }
       }
 
-      // Test 2: Twitter
+      // Test 2: TikTok (SnapTik)
+      if (!downloadUrl && (urlInput.includes('tiktok.com') || urlInput.includes('vm.tiktok.com'))) {
+        downloadUrl = await fetchSnapTik(urlInput);
+        if (downloadUrl) engineUsed = 'SnapTik Engine';
+      }
+
+      // Test 3: Twitter / X
       if (!downloadUrl && (urlInput.includes('twitter.com') || urlInput.includes('x.com'))) {
         downloadUrl = await fetchTwitter(urlInput);
-        if (downloadUrl) engineUsed = 'VxTwitter Direct';
+        if (downloadUrl) engineUsed = 'VxTwitter Engine';
       }
 
-      // Test 3: YouTube
-      const ytId = extractYouTubeId(urlInput);
-      if (!downloadUrl && ytId) {
-        downloadUrl = await fetchYouTube(ytId, format);
-        if (downloadUrl) engineUsed = 'Invidious / Piped Stream';
-      }
-
-      // Test 4: Zapasowy Cobalt Engine dla reszty serwisów
+      // Test 4: Cobalt Network (Fallback dla reszty)
       if (!downloadUrl) {
+        updateStatus(`<span class="spinner"></span> Łączenie z pomocniczym API...`, 'Skanowanie Cobalt Network...');
         downloadUrl = await fetchCobalt(urlInput, quality, format);
-        if (downloadUrl) engineUsed = 'Cobalt Network';
+        if (downloadUrl) engineUsed = 'Cobalt Network Engine';
       }
 
-      // Wynik
+      // Result rendering
       if (downloadUrl) {
-        statusTitle.style.color = '#2ea44f';
-        statusTitle.innerHTML = `<i class="fas fa-check-circle"></i> Gotowe! (${engineUsed})`;
-        statusDesc.innerHTML = `
-          Plik wygenerowany pomyślnie.<br>
-          <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" class="btn-download-direct" download>
-            <i class="fas fa-file-download"></i> Pobierz plik teraz
-          </a>
-        `;
+        updateStatus(
+          `<i class="fas fa-check-circle"></i> Gotowe! (${engineUsed})`,
+          `Plik wygenerowany pomyślnie.<br>
+           <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" class="btn-download-direct" download>
+             <i class="fas fa-file-download"></i> Pobierz plik teraz
+           </a>`,
+          '#2ea44f'
+        );
       } else {
-        statusTitle.style.color = '#da3633';
-        statusTitle.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Błąd pobierania`;
-        statusDesc.innerHTML = `Żaden ze skanowanych serwerów API nie był w stanie przetworzyć podanego linku. Upewnij się, że film jest publiczny.`;
+        updateStatus(
+          `<i class="fas fa-exclamation-triangle"></i> Błąd pobierania`,
+          `Nie udało się wygenerować bezpośredniego linku do pobrania. Upewnij się, że link jest poprawny i materiał jest publiczny.`,
+          '#da3633'
+        );
       }
 
       btn.disabled = false;
